@@ -69,14 +69,14 @@ I recommend looking at the [Example usage section](#example-usage) to understand
 
 #### Entities object
 
-At least one of _grid_, _battery_, or _solar_ is required. All entites (except _battery_charge_) should have a `unit_of_measurement` attribute of W(watts) or kW(kilowatts).
+At least one of _grid_, _battery_, or _generator_ is required. All entites (except _battery_charge_) should have a `unit_of_measurement` attribute of W(watts) or kW(kilowatts).
 
 | Name           | Type                | Description                                                                                                                                                                                                     |
 | -------------- | :------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | grid           | `string` / `object` | Entity ID of a sensor supporting a single state with negative values for production and positive values for consumption or an object for [split entites](#split-entities). Examples of both can be found below. |
 | battery        | `string` / `object` | Entity ID of a sensor supporting a single state with negative values for production and positive values for consumption or an object for [split entites](#split-entities). Examples of both can be found below. |
 | battery_charge | `string`            | Entity ID providing a state with the current percentage of charge on the battery.                                                                                                                               |
-| solar          | `string`            | Entity ID providing a state with the value of generation.                                                                                                                                                       |
+| generator      | `string`            | Entity ID providing a state with the value of generation.                                                                                                                                                       |
 | gas            | `string`            | Entity ID providing a state value of consumption                                                                                                                                                                |
 | water          | `string`            | Entity ID providing a state value of consumption                                                                                                                                                                |
 
@@ -101,7 +101,7 @@ entities:
   battery: sensor.battery_in_out
   battery_charge: sensor.battery_percent
   grid: sensor.grid_in_out
-  solar: sensor.solar_out
+  generator: sensor.generator_out
 ```
 
 #### Inverted Entities Example
@@ -114,7 +114,7 @@ entities:
   battery: sensor.battery_in_out
   battery_charge: sensor.battery_percent
   grid: sensor.grid_in_out
-  solar: sensor.solar_out
+  generator: sensor.generator_out
 inverted_entities: battery, grid
 ```
 
@@ -132,7 +132,7 @@ entities:
   grid:
     consumption: sensor.grid_out
     production: sensor.grid_in
-  solar: sensor.solar_out
+  generator: sensor.generator_out
 ```
 
 ### Flow Formula
@@ -143,9 +143,9 @@ This formula is based on the offical formula used by the Energy Distribution car
 max - (value / totalLines) * (max - min);
 // max = max_flow_rate
 // min = min_flow_rate
-// value = line value, solar to grid for example
-// totalLines = gridConsumption + solarConsumption + solarToBattery +
-//   solarToGrid + batteryConsumption + batteryFromGrid + batteryToGrid
+// value = line value, generator to grid for example
+// totalLines = gridConsumption + generatorConsumption + generatorToBattery +
+//   generatorToGrid + batteryConsumption + batteryFromGrid + batteryToGrid
 ```
 
 I'm not 100% happy with this. I'd prefer to see the dots travel slower when flow is low, but faster when flow is high. For example if the only flow is Grid to Home, I'd like to see the dot move faster if the flow is 15kW, but slower if it's only 2kW. Right now the speed would be the same. If you have a formula you'd like to propose please submit a PR.

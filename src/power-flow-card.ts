@@ -11,7 +11,7 @@ import {
   mdiBatteryOutline,
   mdiFire,
   mdiHome,
-  mdiSolarPower,
+  mdiGeneratorPower,
   mdiTransmissionTower,
   mdiWater,
 } from "@mdi/js";
@@ -43,19 +43,19 @@ export class PowerFlowCard extends LitElement {
   @query("#battery-grid-flow") batteryGridFlow?: SVGSVGElement;
   @query("#battery-home-flow") batteryToHomeFlow?: SVGSVGElement;
   @query("#grid-home-flow") gridToHomeFlow?: SVGSVGElement;
-  @query("#solar-battery-flow") solarToBatteryFlow?: SVGSVGElement;
-  @query("#solar-grid-flow") solarToGridFlow?: SVGSVGElement;
-  @query("#solar-home-flow") solarToHomeFlow?: SVGSVGElement;
+  @query("#generator-battery-flow") generatorToBatteryFlow?: SVGSVGElement;
+  @query("#generator-grid-flow") generatorToGridFlow?: SVGSVGElement;
+  @query("#generator-home-flow") generatorToHomeFlow?: SVGSVGElement;
 
   setConfig(config: PowerFlowCardConfig): void {
     if (
       !config.entities ||
       (!config.entities.battery &&
         !config.entities.grid &&
-        !config.entities.solar)
+        !config.entities.generator)
     ) {
       throw new Error(
-        "At least one entity for battery, grid or solar must be defined"
+        "At least one entity for battery, grid or generator must be defined"
       );
     }
     this._config = {
@@ -129,7 +129,7 @@ export class PowerFlowCard extends LitElement {
     const hasBattery = entities.battery !== undefined;
     const hasGas = entities.gas !== undefined;
     const hasWater = entities.water !== undefined;
-    const hasSolarProduction = entities.solar !== undefined;
+    const hasGeneratorProduction = entities.generator !== undefined;
     const hasReturnToGrid =
       hasGrid &&
       (typeof entities.grid === "string" || entities.grid.production);
@@ -170,15 +170,15 @@ export class PowerFlowCard extends LitElement {
       else waterUsage = Math.max(waterState, 0);
     }
 
-    let totalSolarProduction: number = 0;
-    if (hasSolarProduction) {
-      if (this.entityInverted("solar"))
-        totalSolarProduction = Math.abs(
-          Math.min(this.getEntityStateWatts(entities.solar), 0)
+    let totalGeneratorProduction: number = 0;
+    if (hasGeneratorProduction) {
+      if (this.entityInverted("generator"))
+        totalGeneratorProduction = Math.abs(
+          Math.min(this.getEntityStateWatts(entities.generator), 0)
         );
       else
-        totalSolarProduction = Math.max(
-          this.getEntityStateWatts(entities.solar),
+        totalGeneratorProduction = Math.max(
+          this.getEntityStateWatts(entities.generator),
           0
         );
     }
@@ -212,47 +212,47 @@ export class PowerFlowCard extends LitElement {
       }
     }
 
-    let solarConsumption: number | null = null;
-    if (hasSolarProduction) {
-      solarConsumption =
-        totalSolarProduction - (returnedToGrid ?? 0) - (totalBatteryIn ?? 0);
+    let generatorConsumption: number | null = null;
+    if (hasGeneratorProduction) {
+      generatorConsumption =
+        totalGeneratorProduction - (returnedToGrid ?? 0) - (totalBatteryIn ?? 0);
     }
 
     let batteryFromGrid: null | number = null;
     let batteryToGrid: null | number = null;
-    if (solarConsumption !== null && solarConsumption < 0) {
+    if (generatorConsumption !== null && generatorConsumption < 0) {
       // What we returned to the grid and what went in to the battery is more
       // than produced, so we have used grid energy to fill the battery or
       // returned battery energy to the grid
       if (hasBattery) {
-        batteryFromGrid = Math.abs(solarConsumption);
+        batteryFromGrid = Math.abs(generatorConsumption);
         if (batteryFromGrid > totalFromGrid) {
           batteryToGrid = Math.min(batteryFromGrid - totalFromGrid, 0);
           batteryFromGrid = totalFromGrid;
         }
       }
-      solarConsumption = 0;
+      generatorConsumption = 0;
     }
 
-    let solarToBattery: null | number = null;
-    if (hasSolarProduction && hasBattery) {
+    let generatorToBattery: null | number = null;
+    if (hasGeneratorProduction && hasBattery) {
       if (!batteryToGrid) {
         batteryToGrid = Math.max(
           0,
           (returnedToGrid || 0) -
-            (totalSolarProduction || 0) -
+            (totalGeneratorProduction || 0) -
             (totalBatteryIn || 0) -
             (batteryFromGrid || 0)
         );
       }
-      solarToBattery = totalBatteryIn! - (batteryFromGrid || 0);
-    } else if (!hasSolarProduction && hasBattery) {
+      generatorToBattery = totalBatteryIn! - (batteryFromGrid || 0);
+    } else if (!hasGeneratorProduction && hasBattery) {
       batteryToGrid = returnedToGrid;
     }
 
-    let solarToGrid = 0;
-    if (hasSolarProduction && returnedToGrid)
-      solarToGrid = returnedToGrid - (batteryToGrid ?? 0);
+    let generatorToGrid = 0;
+    if (hasGeneratorProduction && returnedToGrid)
+      generatorToGrid = returnedToGrid - (batteryToGrid ?? 0);
 
     let batteryConsumption: number | null = null;
     if (hasBattery) {
@@ -262,7 +262,7 @@ export class PowerFlowCard extends LitElement {
     const gridConsumption = Math.max(totalFromGrid - (batteryFromGrid ?? 0), 0);
 
     const totalHomeConsumption = Math.max(
-      gridConsumption + (solarConsumption ?? 0) + (batteryConsumption ?? 0),
+      gridConsumption + (generatorConsumption ?? 0) + (batteryConsumption ?? 0),
       0
     );
 
@@ -271,24 +271,24 @@ export class PowerFlowCard extends LitElement {
       homeBatteryCircumference =
         CIRCLE_CIRCUMFERENCE * (batteryConsumption / totalHomeConsumption);
 
-    let homeSolarCircumference: number | undefined;
-    if (hasSolarProduction) {
-      homeSolarCircumference =
-        CIRCLE_CIRCUMFERENCE * (solarConsumption! / totalHomeConsumption);
+    let homeGeneratorCircumference: number | undefined;
+    if (hasGeneratorProduction) {
+      homeGeneratorCircumference =
+        CIRCLE_CIRCUMFERENCE * (generatorConsumption! / totalHomeConsumption);
     }
 
     const homeGridCircumference =
       CIRCLE_CIRCUMFERENCE *
       ((totalHomeConsumption -
         (batteryConsumption ?? 0) -
-        (solarConsumption ?? 0)) /
+        (generatorConsumption ?? 0)) /
         totalHomeConsumption);
 
     const totalLines =
       gridConsumption +
-      (solarConsumption ?? 0) +
-      solarToGrid +
-      (solarToBattery ?? 0) +
+      (generatorConsumption ?? 0) +
+      generatorToGrid +
+      (generatorToBattery ?? 0) +
       (batteryConsumption ?? 0) +
       (batteryFromGrid ?? 0) +
       (batteryToGrid ?? 0);
@@ -315,9 +315,9 @@ export class PowerFlowCard extends LitElement {
       ),
       batteryToHome: this.circleRate(batteryConsumption ?? 0, totalLines),
       gridToHome: this.circleRate(gridConsumption, totalLines),
-      solarToBattery: this.circleRate(solarToBattery ?? 0, totalLines),
-      solarToGrid: this.circleRate(solarToGrid, totalLines),
-      solarToHome: this.circleRate(solarConsumption ?? 0, totalLines),
+      generatorToBattery: this.circleRate(generatorToBattery ?? 0, totalLines),
+      generatorToGrid: this.circleRate(generatorToGrid, totalLines),
+      generatorToHome: this.circleRate(generatorConsumption ?? 0, totalLines),
     };
 
     // Smooth duration changes
@@ -325,9 +325,9 @@ export class PowerFlowCard extends LitElement {
       "batteryGrid",
       "batteryToHome",
       "gridToHome",
-      "solarToBattery",
-      "solarToGrid",
-      "solarToHome",
+      "generatorToBattery",
+      "generatorToGrid",
+      "generatorToHome",
     ].forEach((flowName) => {
       const flowSVGElement = this[`${flowName}Flow`] as SVGSVGElement;
       if (
@@ -348,20 +348,20 @@ export class PowerFlowCard extends LitElement {
     return html`
       <ha-card .header=${this._config.title}>
         <div class="card-content">
-          ${hasSolarProduction || hasGas || hasWater
+          ${hasGeneratorProduction || hasGas || hasWater
             ? html`<div class="row">
                 <div class="spacer"></div>
-                ${hasSolarProduction
-                  ? html`<div class="circle-container solar">
+                ${hasGeneratorProduction
+                  ? html`<div class="circle-container generator">
                       <span class="label"
                         >${this.hass.localize(
-                          "ui.panel.lovelace.cards.energy.energy_distribution.solar"
+                          "ui.panel.lovelace.cards.energy.energy_distribution.generator"
                         )}</span
                       >
                       <div class="circle">
-                        <ha-svg-icon .path=${mdiSolarPower}></ha-svg-icon>
-                        <span class="solar">
-                          ${this.displayValue(totalSolarProduction)}</span
+                        <ha-svg-icon .path=${mdiGeneratorPower}></ha-svg-icon>
+                        <span class="generator">
+                          ${this.displayValue(totalGeneratorProduction)}</span
                         >
                       </div>
                     </div>`
@@ -471,18 +471,18 @@ export class PowerFlowCard extends LitElement {
                 <ha-svg-icon .path=${mdiHome}></ha-svg-icon>
                 ${this.displayValue(totalHomeConsumption)}
                 <svg>
-                  ${homeSolarCircumference !== undefined
+                  ${homeGeneratorCircumference !== undefined
                     ? svg`<circle
-                            class="solar"
+                            class="generator"
                             cx="40"
                             cy="40"
                             r="38"
-                            stroke-dasharray="${homeSolarCircumference} ${
-                        CIRCLE_CIRCUMFERENCE - homeSolarCircumference
+                            stroke-dasharray="${homeGeneratorCircumference} ${
+                        CIRCLE_CIRCUMFERENCE - homeGeneratorCircumference
                       }"
                             shape-rendering="geometricPrecision"
                             stroke-dashoffset="-${
-                              CIRCLE_CIRCUMFERENCE - homeSolarCircumference
+                              CIRCLE_CIRCUMFERENCE - homeGeneratorCircumference
                             }"
                           />`
                     : ""}
@@ -498,7 +498,7 @@ export class PowerFlowCard extends LitElement {
                             stroke-dashoffset="-${
                               CIRCLE_CIRCUMFERENCE -
                               homeBatteryCircumference -
-                              (homeSolarCircumference || 0)
+                              (homeGeneratorCircumference || 0)
                             }"
                             shape-rendering="geometricPrecision"
                           />`
@@ -510,11 +510,11 @@ export class PowerFlowCard extends LitElement {
                     r="38"
                     stroke-dasharray="${homeGridCircumference ??
                     CIRCLE_CIRCUMFERENCE -
-                      homeSolarCircumference! -
+                      homeGeneratorCircumference! -
                       (homeBatteryCircumference ||
                         0)} ${homeGridCircumference !== undefined
                       ? CIRCLE_CIRCUMFERENCE - homeGridCircumference
-                      : homeSolarCircumference! +
+                      : homeGeneratorCircumference! +
                         (homeBatteryCircumference || 0)}"
                     stroke-dashoffset="0"
                     shape-rendering="geometricPrecision"
@@ -607,7 +607,7 @@ export class PowerFlowCard extends LitElement {
                   : html`<div class="spacer"></div>`}
               </div>`
             : html`<div class="spacer"></div>`}
-          ${hasSolarProduction
+          ${hasGeneratorProduction
             ? html`<div
                 class="lines ${classMap({
                   high: hasBattery,
@@ -618,11 +618,11 @@ export class PowerFlowCard extends LitElement {
                   viewBox="0 0 100 100"
                   xmlns="http://www.w3.org/2000/svg"
                   preserveAspectRatio="xMidYMid slice"
-                  id="solar-home-flow"
+                  id="generator-home-flow"
                 >
                   <path
-                    id="solar"
-                    class="solar"
+                    id="generator"
+                    class="generator"
                     d="M${hasBattery ? 55 : 53},0 v${hasGrid
                       ? 15
                       : 17} c0,${hasBattery
@@ -630,25 +630,25 @@ export class PowerFlowCard extends LitElement {
                       : "40 10,35 30,35"} h25"
                     vector-effect="non-scaling-stroke"
                   ></path>
-                  ${solarConsumption
+                  ${generatorConsumption
                     ? svg`<circle
                             r="1"
-                            class="solar"
+                            class="generator"
                             vector-effect="non-scaling-stroke"
                           >
                             <animateMotion
-                              dur="${newDur.solarToHome}s"
+                              dur="${newDur.generatorToHome}s"
                               repeatCount="indefinite"
                               calcMode="linear"
                             >
-                              <mpath xlink:href="#solar" />
+                              <mpath xlink:href="#generator" />
                             </animateMotion>
                           </circle>`
                     : ""}
                 </svg>
               </div>`
             : ""}
-          ${hasReturnToGrid && hasSolarProduction
+          ${hasReturnToGrid && hasGeneratorProduction
             ? html`<div
                 class="lines ${classMap({
                   high: hasBattery,
@@ -659,7 +659,7 @@ export class PowerFlowCard extends LitElement {
                   viewBox="0 0 100 100"
                   xmlns="http://www.w3.org/2000/svg"
                   preserveAspectRatio="xMidYMid slice"
-                  id="solar-grid-flow"
+                  id="generator-grid-flow"
                 >
                   <path
                     id="return"
@@ -669,14 +669,14 @@ export class PowerFlowCard extends LitElement {
                       : "40 -10,35 -30,35"} h-20"
                     vector-effect="non-scaling-stroke"
                   ></path>
-                  ${solarToGrid && hasSolarProduction
+                  ${generatorToGrid && hasGeneratorProduction
                     ? svg`<circle
                         r="1"
                         class="return"
                         vector-effect="non-scaling-stroke"
                       >
                         <animateMotion
-                          dur="${newDur.solarToGrid}s"
+                          dur="${newDur.generatorToGrid}s"
                           repeatCount="indefinite"
                           calcMode="linear"
                         >
@@ -687,7 +687,7 @@ export class PowerFlowCard extends LitElement {
                 </svg>
               </div>`
             : ""}
-          ${hasBattery && hasSolarProduction
+          ${hasBattery && hasGeneratorProduction
             ? html`<div
                 class="lines ${classMap({
                   high: hasBattery,
@@ -698,26 +698,26 @@ export class PowerFlowCard extends LitElement {
                   viewBox="0 0 100 100"
                   xmlns="http://www.w3.org/2000/svg"
                   preserveAspectRatio="xMidYMid slice"
-                  id="solar-battery-flow"
+                  id="generator-battery-flow"
                 >
                   <path
-                    id="battery-solar"
-                    class="battery-solar"
+                    id="battery-generator"
+                    class="battery-generator"
                     d="M50,0 V100"
                     vector-effect="non-scaling-stroke"
                   ></path>
-                  ${solarToBattery
+                  ${generatorToBattery
                     ? svg`<circle
                             r="1"
-                            class="battery-solar"
+                            class="battery-generator"
                             vector-effect="non-scaling-stroke"
                           >
                             <animateMotion
-                              dur="${newDur.solarToBattery}s"
+                              dur="${newDur.generatorToBattery}s"
                               repeatCount="indefinite"
                               calcMode="linear"
                             >
-                              <mpath xlink:href="#battery-solar" />
+                              <mpath xlink:href="#battery-generator" />
                             </animateMotion>
                           </circle>`
                     : ""}
@@ -742,7 +742,7 @@ export class PowerFlowCard extends LitElement {
                     id="grid"
                     d="M0,${hasBattery
                       ? 50
-                      : hasSolarProduction
+                      : hasGeneratorProduction
                       ? 56
                       : 53} H100"
                     vector-effect="non-scaling-stroke"
@@ -917,7 +917,7 @@ export class PowerFlowCard extends LitElement {
       flex-direction: column;
       align-items: center;
     }
-    .circle-container.solar {
+    .circle-container.generator {
       margin: 0 4px;
       height: 130px;
     }
@@ -1005,19 +1005,19 @@ export class PowerFlowCard extends LitElement {
     .water .circle {
       border-color: var(--energy-water-color);
     }
-    .solar {
+    .generator {
       color: var(--primary-text-color);
     }
-    .solar .circle {
-      border-color: var(--energy-solar-color);
+    .generator .circle {
+      border-color: var(--energy-generator-color);
     }
-    circle.solar,
-    path.solar {
-      stroke: var(--energy-solar-color);
+    circle.generator,
+    path.generator {
+      stroke: var(--energy-generator-color);
     }
-    circle.solar {
+    circle.generator {
       stroke-width: 4;
-      fill: var(--energy-solar-color);
+      fill: var(--energy-generator-color);
     }
     .battery .circle {
       border-color: var(--energy-battery-in-color);
@@ -1034,11 +1034,11 @@ export class PowerFlowCard extends LitElement {
       stroke-width: 4;
       fill: var(--energy-battery-out-color);
     }
-    path.battery-solar,
-    circle.battery-solar {
+    path.battery-generator,
+    circle.battery-generator {
       stroke: var(--energy-battery-in-color);
     }
-    circle.battery-solar {
+    circle.battery-generator {
       stroke-width: 4;
       fill: var(--energy-battery-in-color);
     }
